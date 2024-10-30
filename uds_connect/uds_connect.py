@@ -39,3 +39,6 @@ def initialize_uds(driver_type, request_id, response_id, **kwargs):
         return Uds(reqId=request_id, resId=response_id, transportProtocol="CAN", interface="vector", channel=kwargs.get("channel", 0), app_name=kwargs.get("app_name", "BALCAN"))
     else:
         raise ValueError("Unsupported driver type. Please select 'kvaser', 'peak', or 'vector'.")
+
+
+
