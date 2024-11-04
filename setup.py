@@ -2,13 +2,13 @@ from setuptools import setup, find_packages
 
 setup(
     name="uds_connect",                    # Name of the package
-    version="0.1.4",                       # Package version
+    version="0.1.6",                       # Package version
     description="A package to interface with UDS via different CAN interfaces",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     author="Omkar Rane",
     author_email="ojrane16124@gmail.com",
-    url="https://github.com/yourusername/uds_connect",  # URL of the project's GitHub repo
+    url="https://github.com/ojrane16124/uds_connect",  # URL of the project's GitHub repo
     license="MIT",                         # License type
     packages=find_packages(),              # Automatically find package directories
     install_requires=[

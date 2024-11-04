@@ -5,15 +5,15 @@ import time
 MAX_RETRIES = 10  # Number of retries
 RETRY_DELAY = 0.5  # Delay between retries in seconds
 
-def send_with_retry(uds_instance, request):
-    for attempt in range(MAX_RETRIES):
+def send_with_retry(uds_instance, request,retries=MAX_RETRIES,delay=RETRY_DELAY):
+    for attempt in range(retries):
         try:
             response = uds_instance.send(request)
             return response  # Return the successful response
         except Exception as e:
             if "Timeout in waiting for message" in str(e):
                 print(f"Attempt {attempt + 1} failed: {e}. Retrying...")
-                time.sleep(RETRY_DELAY)  # Wait before retrying
+                time.sleep(delay)  # Wait before retrying
             else:
                 raise  # Re-raise other exceptions immediately
     raise Exception("Max retries reached. Communication failed.")
