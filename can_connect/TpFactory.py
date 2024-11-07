@@ -2,6 +2,7 @@
 from uds.Uds import Config
 from can_connect.CanTp import CanTp
 from os import path
+import os
 import pdb
 
 
@@ -40,7 +41,8 @@ class TpFactory(object):
     def loadConfiguration(configPath=None):
 
         #load the base config
-        baseConfig = path.dirname(__file__) + "\config.ini"
+        # baseConfig = path.dirname(__file__) + "\config.ini"
+        baseConfig = os.path.join(os.getcwd(),'can_connect','config.ini')
         config = Config()
         if path.exists(baseConfig):
             config.read(baseConfig)

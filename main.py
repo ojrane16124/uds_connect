@@ -5,7 +5,7 @@ from uds_connect import initialize_uds,send_with_retry
 
 def main():
     # User can set the driver type, request ID, and response ID here
-    driver_type = "kvaser"  # Change to 'kvaser' or 'vector' as needed
+    driver_type = "vector"  # Change to 'kvaser' or 'vector' as needed
     request_id = 0x7D2
     response_id = 0x7D3
     # Additional kwargs based on driver type
@@ -19,8 +19,8 @@ def main():
     additional_params = {
     # "device": "PCAN_USBBUS1"  # For 'peak' driver
     "channel": 0,            # For 'kvaser' or 'vector' drivers
-    "bitrate": 500000,       # For 'kvaser' driver
-    # "app_name": "BALCAN"     # For 'vector' driver
+    # "bitrate": 500000,       # For 'kvaser' driver
+    "app_name": "BALCAN"     # For 'vector' driver
 }
 
 

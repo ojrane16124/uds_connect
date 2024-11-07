@@ -6,6 +6,11 @@ from os import path
 import threading
 
 
+
+transportProtocol="CAN"
+P2_CAN_Client=1
+P2_CAN_Server=1
+
 ##
 # @brief a description is needed
 class Uds(object):
@@ -21,12 +26,12 @@ class Uds(object):
         self.__P2_CAN_Client = None
         self.__P2_CAN_Server = None
 
-        self.__loadConfiguration(configPath)
-        self.__checkKwargs(**kwargs)
+        # self.__loadConfiguration(configPath)
+        # self.__checkKwargs(**kwargs)
 
-        self.__transportProtocol = self.__config['uds']['transportProtocol']
-        self.__P2_CAN_Client = float(self.__config['uds']['P2_CAN_Client'])
-        self.__P2_CAN_Server = float(self.__config['uds']['P2_CAN_Server'])
+        self.__transportProtocol = transportProtocol
+        self.__P2_CAN_Client = float(P2_CAN_Client)
+        self.__P2_CAN_Server = float(P2_CAN_Server)
 
         tpFactory = TpFactory()
         self.tp = tpFactory(self.__transportProtocol, configPath=configPath, **kwargs)
@@ -40,34 +45,6 @@ class Uds(object):
         # Process any ihex file that has been associated with the ecu at initialisation
         self.__ihexFile = ihexFileParser(ihexFile) if ihexFile is not None else None
 
-
-
-    def __loadConfiguration(self, configPath=None):
-
-        baseConfig = path.dirname(__file__) + r"\config.ini"
-        self.__config = Config()
-        if path.exists(baseConfig):
-            self.__config.read(baseConfig)
-        else:
-            raise FileNotFoundError("No base config file")
-
-        # check the config path
-        if configPath is not None:
-            if path.exists(configPath):
-                self.__config.read(configPath)
-            else:
-                raise FileNotFoundError("specified config not found")
-
-    def __checkKwargs(self, **kwargs):
-
-        if 'transportProtocol' in kwargs:
-            self.__config['uds']['transportProtocol'] = kwargs['transportProtocol']
-
-        if 'P2_CAN_Server' in kwargs:
-            self.__config['uds']['P2_CAN_Server'] = str(kwargs['P2_CAN_Server'])
-
-        if 'P2_CAN_Client' in kwargs:
-            self.__config['uds']['P2_CAN_Client'] = str(kwargs['P2_CAN_Client'])
 
 
     @property

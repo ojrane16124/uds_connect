@@ -38,6 +38,8 @@ class CanTp(iTp):
         self.__loadConfiguration(configPath)
         self.__checkKwargs(**kwargs)
 
+        # pdb.set_trace()
+
         # load variables from the config
         self.__N_AE = int(self.__config['canTp']['N_AE'], 16)
         self.__N_TA = int(self.__config['canTp']['N_TA'], 16)
