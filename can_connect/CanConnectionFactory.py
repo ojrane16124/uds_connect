@@ -1,128 +1,95 @@
 import can
-from can.interfaces import pcan, vector ,kvaser
-import pdb
-from uds_configuration.Config import Config
-from os import path
-#from uds import CanConnection
+from can.interfaces import pcan, vector, kvaser
 from can_connect.CanConnection import CanConnection
 
-class CanConnectionFactory(object):
-
+class CanConnectionFactory:
     connections = {}
-    config = None
+    config = {
+        'can': {
+            'interface': '',
+            'baudrate': '500000'
+        },
+        'virtual': {
+            'interfaceName': 'vcan0'
+        },
+        'peak': {
+            'device': 'PCAN_USBBUS1'
+        },
+        'vector': {
+            'appName': 'CANalyzer',
+            'channel': '0'
+        },
+        'kvaser': {
+            'device': '0',
+            'channel': '0'
+        }
+    }
 
     @staticmethod
-    def __call__(callback=None, filter=None, configPath=None, **kwargs):
-
-        # pdb.set_trace()
-
-        CanConnectionFactory.loadConfiguration(configPath)
+    def __call__(callback=None, filter=None, **kwargs):
         CanConnectionFactory.checkKwargs(**kwargs)
-
-        # check config file and load
         connectionType = CanConnectionFactory.config['can']['interface']
 
         if connectionType == 'virtual':
             connectionName = CanConnectionFactory.config['virtual']['interfaceName']
-            if connectionName not in CanConnectionFactory.connections:
-                CanConnectionFactory.connections[connectionName] = CanConnection(callback, filter,
-                                                                                 can.interface.Bus(connectionName,
-                                                                                     bustype='virtual'))
-            else:
-                CanConnectionFactory.connections[connectionName].addCallback(callback)
-                CanConnectionFactory.connections[connectionName].addFilter(filter)
-            return CanConnectionFactory.connections[connectionName]
+            return CanConnectionFactory.getOrCreateConnection(
+                connectionName, callback, filter, 
+                lambda: can.interface.Bus(connectionName, bustype='virtual')
+            )
 
         elif connectionType == 'peak':
             channel = CanConnectionFactory.config['peak']['device']
-            if channel not in CanConnectionFactory.connections:
-                baudrate = CanConnectionFactory.config['can']['baudrate']
-                CanConnectionFactory.connections[channel] = CanConnection(callback, filter,
-                                                                          pcan.PcanBus(channel,
-                                                                          bitrate=baudrate))
-            else:
-                CanConnectionFactory.connections[channel].addCallback(callback)
-                CanConnectionFactory.connections[channel].addFilter(filter)
-                
-            return CanConnectionFactory.connections[channel]
+            baudrate = CanConnectionFactory.config['can']['baudrate']
+            return CanConnectionFactory.getOrCreateConnection(
+                channel, callback, filter, 
+                lambda: pcan.PcanBus(channel, bitrate=baudrate)
+            )
 
         elif connectionType == 'vector':
             channel = int(CanConnectionFactory.config['vector']['channel'])
             app_name = CanConnectionFactory.config['vector']['appName']
-            connectionKey = str("{0}_{1}").format(app_name, channel)
-            if connectionKey not in CanConnectionFactory.connections:
-                baudrate = int(CanConnectionFactory.config['can']['baudrate'])
-                CanConnectionFactory.connections[connectionKey] = CanConnection(callback, filter,
-                                                                                vector.VectorBus(channel,
-                                                                                    app_name=app_name,
-                                                                                    data_bitrate=baudrate))
-            else:
-                CanConnectionFactory.connections[connectionKey].addCallback(callback)
-                CanConnectionFactory.connections[connectionKey].addFilter(filter)
-            return CanConnectionFactory.connections[connectionKey]
-    
-        elif connectionType == 'kvaser':  # New Kvaser connection type
+            baudrate = int(CanConnectionFactory.config['can']['baudrate'])
+            connectionKey = f"{app_name}_{channel}"
+            return CanConnectionFactory.getOrCreateConnection(
+                connectionKey, callback, filter, 
+                lambda: vector.VectorBus(channel, app_name=app_name, data_bitrate=baudrate)
+            )
+
+        elif connectionType == 'kvaser':
             channel = CanConnectionFactory.config['kvaser']['channel']
-            if channel not in CanConnectionFactory.connections:
-                baudrate = CanConnectionFactory.config['can']['baudrate']
-                CanConnectionFactory.connections[channel] = CanConnection(callback, filter,
-                                                                          kvaser.KvaserBus(channel,
-                                                                                           bitrate=int(baudrate)))
-            else:
-                CanConnectionFactory.connections[channel].addCallback(callback)
-                CanConnectionFactory.connections[channel].addFilter(filter)
-            return CanConnectionFactory.connections[channel]
+            baudrate = CanConnectionFactory.config['can']['baudrate']
+            return CanConnectionFactory.getOrCreateConnection(
+                channel, callback, filter, 
+                lambda: kvaser.KvaserBus(channel, bitrate=int(baudrate))
+            )
+
+        else:
+            raise ValueError(f"Unsupported connection type: {connectionType}")
 
     @staticmethod
-    def loadConfiguration(configPath=None):
-
-        CanConnectionFactory.config = Config()
-
-        localConfig = path.dirname(__file__) + "\config.ini"
-        CanConnectionFactory.config.read(localConfig)
-
-        if configPath is not None:
-            if path.exists(configPath):
-                CanConnectionFactory.config.read(configPath)
-            else:
-                raise FileNotFoundError("Can not find config file")
-
-    # @staticmethod
-    # def checkKwargs(**kwargs):
-
-    #     if 'interface' in kwargs:
-    #         CanConnectionFactory.config['can']['interface'] = kwargs['interface']
-
-    #     if 'baudrate' in kwargs:
-    #         CanConnectionFactory.config['can']['baudrate'] = kwargs['baudrate']
-
-    #     if 'device' in kwargs:
-    #         CanConnectionFactory.config['peak']['device'] = kwargs['device']
-
-    #     if 'appName' in kwargs:
-    #         CanConnectionFactory.config['vector']['appName'] = kwargs['appName']
-
-    #     if 'channel' in kwargs:
-    #         CanConnectionFactory.config['vector']['channel'] = kwargs['channel']
+    def getOrCreateConnection(key, callback, filter, createConnection):
+        if key not in CanConnectionFactory.connections:
+            CanConnectionFactory.connections[key] = CanConnection(callback, filter, createConnection())
+        else:
+            CanConnectionFactory.connections[key].addCallback(callback)
+            CanConnectionFactory.connections[key].addFilter(filter)
+        return CanConnectionFactory.connections[key]
 
     @staticmethod
     def checkKwargs(**kwargs):
+        configMap = {
+            'interface': ('can', 'interface'),
+            'baudrate': ('can', 'baudrate'),
+            'device': [('peak', 'device'), ('kvaser', 'device')],
+            'appName': ('vector', 'appName'),
+            'channel': [('vector', 'channel'), ('kvaser', 'channel')]
+        }
 
-        if 'interface' in kwargs:
-            CanConnectionFactory.config['can']['interface'] = str(kwargs['interface'])
-
-        if 'baudrate' in kwargs:
-            CanConnectionFactory.config['can']['baudrate'] = str(kwargs['baudrate'])
-
-        if 'device' in kwargs:
-            CanConnectionFactory.config['peak']['device'] = str(kwargs['device'])
-            CanConnectionFactory.config['kvaser']['device'] = str(kwargs['device'])  # Assuming device is the same
-
-        if 'appName' in kwargs:
-            CanConnectionFactory.config['vector']['appName'] = str(kwargs['appName'])
-
-        if 'channel' in kwargs:
-            CanConnectionFactory.config['vector']['channel'] = str(kwargs['channel'])  # Convert to string for config
-            CanConnectionFactory.config['kvaser']['channel'] = str(kwargs['channel'])  # Add channel for Kvaser if needed
-
-
+        for key, paths in configMap.items():
+            if key in kwargs:
+                value = str(kwargs[key])
+                if isinstance(paths, list):
+                    for pathPair in paths:
+                        CanConnectionFactory.config[pathPair[0]][pathPair[1]] = value
+                else:
+                    CanConnectionFactory.config[paths[0]][paths[1]] = value

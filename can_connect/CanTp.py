@@ -4,6 +4,7 @@ from time import sleep
 from can_connect.iTp import iTp
 from can_connect.ResettableTimer import ResettableTimer
 from can_connect.UtilityFunctions import fillArray
+import os
 from can_connect.CanTpTypes import CanTpAddressingTypes, CanTpState, \
     CanTpMessageType, CanTpFsTypes, CanTpMTypes
 from can_connect.CanTpTypes import CANTP_MAX_PAYLOAD_LENGTH, SINGLE_FRAME_DL_INDEX, \
@@ -18,101 +19,86 @@ import pdb
 from os import path
 
 
-##
-# @class CanTp
-# @brief This is the main class to support CAN transport protocol
-#
-# Will spawn a CanTpListener class for incoming messages
-# depends on a bus object for communication on CAN
 class CanTp(iTp):
-
     configParams = ['reqId', 'resId', 'addressingType']
 
-    ##
-    # @brief constructor for the CanTp object
-    def __init__(self, configPath=None, **kwargs):
-
-        # perform the instance config
-        self.__config = None
-
-        self.__loadConfiguration(configPath)
+    def __init__(self, config=None, **kwargs):
+        # self.__config = config or self.__defaultConfiguration()
+        self.__config = self.__defaultConfiguration()
         self.__checkKwargs(**kwargs)
 
-        # pdb.set_trace()
-
-        # load variables from the config
+        # Load configuration variables
         self.__N_AE = int(self.__config['canTp']['N_AE'], 16)
         self.__N_TA = int(self.__config['canTp']['N_TA'], 16)
         self.__N_SA = int(self.__config['canTp']['N_SA'], 16)
 
         Mtype = self.__config['canTp']['Mtype']
-        if (Mtype == "DIAGNOSTICS"):
+        if Mtype == "DIAGNOSTICS":
             self.__Mtype = CanTpMTypes.DIAGNOSTICS
-        elif (Mtype == "REMOTE_DIAGNOSTICS"):
+        elif Mtype == "REMOTE_DIAGNOSTICS":
             self.__Mtype = CanTpMTypes.REMOTE_DIAGNOSTICS
         else:
-            raise Exception("Do not understand the Mtype config")
+            raise Exception("Unknown Mtype config")
 
         addressingType = self.__config['canTp']['addressingType']
         if addressingType == "NORMAL":
             self.__addressingType = CanTpAddressingTypes.NORMAL
         elif addressingType == "NORMAL_FIXED":
             self.__addressingType = CanTpAddressingTypes.NORMAL_FIXED
-        elif self.__addressingType == "EXTENDED":
+        elif addressingType == "EXTENDED":
             self.__addressingType = CanTpAddressingTypes.EXTENDED
         elif addressingType == "MIXED":
             self.__addressingType = CanTpAddressingTypes.MIXED
         else:
-            raise Exception("Do not understand the addressing config")
+            raise Exception("Unknown addressing config")
 
         self.__reqId = int(self.__config['canTp']['reqId'], 16)
         self.__resId = int(self.__config['canTp']['resId'], 16)
 
-        # sets up the relevant parameters in the instance
-        if(
-                (self.__addressingType == CanTpAddressingTypes.NORMAL) |
-                (self.__addressingType == CanTpAddressingTypes.NORMAL_FIXED)
-        ):
+        # Configure other class members as needed
+        if self.__addressingType in [CanTpAddressingTypes.NORMAL, CanTpAddressingTypes.NORMAL_FIXED]:
             self.__maxPduLength = 7
             self.__pduStartIndex = 0
-        elif(
-                (self.__addressingType == CanTpAddressingTypes.EXTENDED) |
-                (self.__addressingType == CanTpAddressingTypes.MIXED)
-        ):
+        elif self.__addressingType in [CanTpAddressingTypes.EXTENDED, CanTpAddressingTypes.MIXED]:
             self.__maxPduLength = 6
             self.__pduStartIndex = 1
 
-        # set up the CAN connection
         canConnectionFactory = CanConnectionFactory()
-        self.__connection = canConnectionFactory(self.callback_onReceive,
-                                                 self.__resId, # <-filter
-                                                 configPath, **kwargs)
+        self.__connection = canConnectionFactory(self.callback_onReceive, self.__resId, **kwargs)
 
         self.__recvBuffer = []
 
-    ##
-    # @brief used to load the local configuration options and override them with any passed in from a config file
-    def __loadConfiguration(self, configPath, **kwargs):
+    def __defaultConfiguration(self):
+        return {
+            'canTp': {
+                'reqId': '0x600',
+                'resId': '0x650',
+                'addressingType': 'NORMAL',
+                'N_SA': '0xFF',
+                'N_TA': '0xFF',
+                'N_AE': '0xFF',
+                'Mtype': 'DIAGNOSTICS'
+            },
+            'can': {
+                'interface': 'virtual',
+                'baudrate': '500000'
+            },
+            'virtual': {
+                'interfaceName': 'virtualInterface'
+            },
+            'peak': {
+                'device': 'PCAN_USBBUS1'
+            },
+            'vector': {
+                'appName': 'BALCAN'
+            },
+            'kvaser': {
+                'device': 'Kvaser U100',
+                'channel': '0'
+            }
+        }
 
-        #load the base config
-        baseConfig = path.dirname(__file__) + "\config.ini"
-        self.__config = Config()
-        if path.exists(baseConfig):
-            self.__config.read(baseConfig)
-        else:
-            raise FileNotFoundError("No base config file")
-
-        # check the config path
-        if configPath is not None:
-            if path.exists(configPath):
-                self.__config.read(configPath)
-            else:
-                raise FileNotFoundError("specified config not found")
-
-    ##
-    # @brief goes through the kwargs and overrides any of the local configuration options
     def __checkKwargs(self, **kwargs):
-
         if 'addressingType' in kwargs:
             self.__config['canTp']['addressingType'] = kwargs['addressingType']
 
@@ -134,34 +120,7 @@ class CanTp(iTp):
         if 'Mtype' in kwargs:
             self.__config['canTp']['Mtype'] = str(kwargs['Mtype'])
 
-    ##
-    # @brief connection method
-    # def createBusConnection(self):
-    #     # check config file and load
-    #     connectionType = self.__config['DEFAULT']['interface']
-    #
-    #     if connectionType == 'virtual':
-    #         connectionName = self.__config['virtual']['interfaceName']
-    #         bus = can.interface.Bus(connectionName,
-    #                                 bustype='virtual')
-    #     elif connectionType == 'peak':
-    #         channel = self.__config['peak']['device']
-    #         baudrate = self.__config['connection']['baudrate']
-    #         bus = pcan.PcanBus(channel,
-    #                            bitrate=baudrate)
-    #     elif connectionType == 'vector':
-    #         channel = self.__config['vector']['channel']
-    #         app_name = self.__config['vector']['app_name']
-    #         baudrate = int(self.__config['connection']['baudrate']) * 1000
-    #         bus = vector.VectorBus(channel,
-    #                                app_name=app_name,
-    #                                data_bitrate=baudrate)
-    #
-    #     return bus
 
-    ##
-    # @brief send method
-    # @param [in] payload the payload to be sent
     def send(self, payload, functionalReq=False):
 
         payloadLength = len(payload)

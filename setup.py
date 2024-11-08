@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="uds_connect",                    # Name of the package
-    version="0.1.6",                       # Package version
+    version="1.0",                       # Package version
     description="A package to interface with UDS via different CAN interfaces",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
